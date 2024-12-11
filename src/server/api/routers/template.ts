@@ -2,22 +2,22 @@
 
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { TRPCError } from "@trpc/server";
+
+// Define section schema with new types
+const sectionSchema = z.object({
+  id: z.string().optional(),
+  sectionType: z.enum(["ContactInfo", "Socials", "Bio"]),
+  order: z.number(),
+});
 
 export const templateRouter = createTRPCRouter({
-  // Existing procedures...
-
-  // Procedure to create a template
   create: protectedProcedure
     .input(
       z.object({
         name: z.string().min(1, "Template name is required"),
         sections: z
-          .array(
-            z.object({
-              sectionType: z.enum(["left", "center", "right"]).default("left"),
-              order: z.number(),
-            }),
-          )
+          .array(sectionSchema)
           .min(1, "At least one section is required"),
       }),
     )
@@ -26,15 +26,16 @@ export const templateRouter = createTRPCRouter({
         data: {
           name: input.name,
           userId: ctx.session.user.id,
-          // Do not include `updatedAt`; Prisma handles it automatically
           sections: {
             create: input.sections,
           },
         },
+        include: {
+          sections: true,
+        },
       });
     }),
 
-  // Procedure to list all templates for the authenticated user
   list: protectedProcedure.query(async ({ ctx }) => {
     return await ctx.db.template.findMany({
       where: { userId: ctx.session.user.id },
@@ -43,58 +44,59 @@ export const templateRouter = createTRPCRouter({
     });
   }),
 
-  // Procedure to delete a template
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify ownership before deletion
-      const template = await ctx.db.template.findUnique({
-        where: { id: input.id },
-      });
+      return await ctx.db.$transaction(async (tx) => {
+        const template = await tx.template.findUnique({
+          where: { id: input.id },
+          include: { sections: true }
+        });
 
-      if (!template || template.userId !== ctx.session.user.id) {
-        throw new Error("Template not found or unauthorized");
-      }
+        if (!template || template.userId !== ctx.session.user.id) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Template not found or unauthorized"
+          });
+        }
 
-      return ctx.db.template.delete({
-        where: { id: input.id },
+        await tx.section.deleteMany({
+          where: { templateId: input.id }
+        });
+
+        return tx.template.delete({
+          where: { id: input.id }
+        });
       });
     }),
 
-  // Procedure to update a template
   updateTemplate: protectedProcedure
     .input(
       z.object({
         id: z.string(),
         name: z.string().min(1, "Template name is required"),
         sections: z
-          .array(
-            z.object({
-              id: z.string().optional(), // Existing sections will have an ID
-              sectionType: z.enum(["left", "center", "right"]),
-              order: z.number(),
-            }),
-          )
+          .array(sectionSchema)
           .min(1, "At least one section is required"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const { id, name, sections } = input;
 
-      // Fetch existing sections
       const existingTemplate = await ctx.db.template.findUnique({
         where: { id },
         include: { sections: true },
       });
 
       if (!existingTemplate || existingTemplate.userId !== ctx.session.user.id) {
-        throw new Error("Template not found or unauthorized");
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Template not found or unauthorized"
+        });
       }
 
       const existingSectionIds = existingTemplate.sections.map((s) => s.id);
       const incomingSectionIds = sections.filter((s) => s.id).map((s) => s.id);
-
-      // Determine which sections to delete
       const sectionsToDelete = existingSectionIds.filter(
         (id) => !incomingSectionIds.includes(id)
       );
@@ -104,9 +106,7 @@ export const templateRouter = createTRPCRouter({
         data: {
           name,
           sections: {
-            // Delete removed sections
             deleteMany: sectionsToDelete.map((sectionId) => ({ id: sectionId })),
-            // Update existing sections
             update: sections
               .filter((s) => s.id)
               .map((s) => ({
@@ -116,7 +116,6 @@ export const templateRouter = createTRPCRouter({
                   order: s.order,
                 },
               })),
-            // Create new sections
             create: sections
               .filter((s) => !s.id)
               .map((s) => ({

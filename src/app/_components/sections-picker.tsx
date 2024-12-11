@@ -4,11 +4,12 @@
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { GripVertical } from "lucide-react"; // Import Lucide draggable icon
+import { GripVertical } from "lucide-react";
+import { SectionType } from "@/config/sectionFields";
 
 interface Section {
   id: string;
-  sectionType: "left" | "center" | "right";
+  sectionType: SectionType;
   order: number;
 }
 
@@ -21,7 +22,7 @@ export function SectionPicker({ sections, setSections }: SectionPickerProps) {
   const addSection = () => {
     const newSection: Section = {
       id: Date.now().toString(),
-      sectionType: "left",
+      sectionType: "Bio", // Default to Bio instead of left
       order: sections.length + 1,
     };
     setSections([...sections, newSection]);
@@ -44,7 +45,7 @@ export function SectionPicker({ sections, setSections }: SectionPickerProps) {
     );
   };
 
-  const updateSectionType = (id: string, type: Section["sectionType"]) => {
+  const updateSectionType = (id: string, type: SectionType) => {
     setSections(
       sections.map((section) =>
         section.id === id ? { ...section, sectionType: type } : section
@@ -71,16 +72,14 @@ export function SectionPicker({ sections, setSections }: SectionPickerProps) {
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                       >
-                        {/* Draggable Icon */}
                         <div {...provided.dragHandleProps} className="cursor-grab mr-2">
                           <GripVertical className="w-4 h-4 text-gray-500" />
                         </div>
 
-                        {/* Section Type Selector */}
                         <Select
                           value={section.sectionType}
                           onValueChange={(value) =>
-                            updateSectionType(section.id, value as Section["sectionType"])
+                            updateSectionType(section.id, value as SectionType)
                           }
                           className="flex-1"
                         >
@@ -88,13 +87,12 @@ export function SectionPicker({ sections, setSections }: SectionPickerProps) {
                             <SelectValue placeholder="Select type" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="left">Left</SelectItem>
-                            <SelectItem value="center">Center</SelectItem>
-                            <SelectItem value="right">Right</SelectItem>
+                            <SelectItem value="ContactInfo">Contact Information</SelectItem>
+                            <SelectItem value="Socials">Social Links</SelectItem>
+                            <SelectItem value="Bio">Biography</SelectItem>
                           </SelectContent>
                         </Select>
 
-                        {/* Remove Button */}
                         <Button
                           onClick={() => removeSection(section.id)}
                           variant="destructive"

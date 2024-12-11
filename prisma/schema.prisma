@@ -85,8 +85,14 @@ model Cv {
 
 model CvSection {
   id          String @id @default(uuid())
-  heading     String
-  content     String
+  heading     String?    // Optional for non-Bio sections
+  content     String?    // Optional for non-Bio sections
+  name        String?    // For ContactInfo
+  surname     String?    // For ContactInfo
+  phone       String?    // For ContactInfo
+  email       String?    // For ContactInfo
+  linkedin    String?    // For Socials
+  website     String? 
   sectionType String
   order       Int
   cv          Cv     @relation(fields: [cvId], references: [id])
