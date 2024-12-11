@@ -70,26 +70,51 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// prisma/schema.prisma
-
-model Template {
-  id         String    @id @default(uuid())
+model Cv {
+  id         String      @id @default(uuid())
   name       String
   userId     String
-  sections   Section[]
-  user       User      @relation(fields: [userId], references: [id])
-  createdAt  DateTime  @default(now())
+  template   Template    @relation(fields: [templateId], references: [id])
+  templateId String
+  sections   CvSection[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
-  @@unique([id, userId]) // Added composite unique index
+  @@index([userId])
+}
+
+model CvSection {
+  id          String @id @default(uuid())
+  heading     String
+  content     String
+  sectionType String
+  order       Int
+  cv          Cv     @relation(fields: [cvId], references: [id])
+  cvId        String
+
+  @@index([cvId])
+}
+
+model Template {
+  id        String    @id @default(uuid())
+  name      String
+  userId    String
+  sections  Section[]
+  cvs       Cv[]
+  user      User      @relation(fields: [userId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
   @@index([userId])
 }
 
 model Section {
-  id         String   @id @default(uuid())
-  sectionType  String
-  order      Int
-  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  templateId String
+  id          String  @id @default(uuid())
+  heading     String?
+  sectionType String
+  order       Int
+  template    Template @relation(fields: [templateId], references: [id])
+  templateId  String
 
   @@index([templateId])
 }

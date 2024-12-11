@@ -26,12 +26,10 @@ export const templateRouter = createTRPCRouter({
         data: {
           name: input.name,
           userId: ctx.session.user.id,
+          // Do not include `updatedAt`; Prisma handles it automatically
           sections: {
             create: input.sections,
           },
-        },
-        include: {
-          sections: true,
         },
       });
     }),
